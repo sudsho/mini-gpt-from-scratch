@@ -48,3 +48,35 @@ class CausalSelfAttention(nn.Module):
         y = y.transpose(1, 2).contiguous().view(B, T, C)
         y = self.resid_dropout(self.c_proj(y))
         return y
+
+
+class MLP(nn.Module):
+
+    def __init__(self, n_embd, dropout=0.0, bias=False):
+        super().__init__()
+        self.c_fc = nn.Linear(n_embd, 4 * n_embd, bias=bias)
+        self.c_proj = nn.Linear(4 * n_embd, n_embd, bias=bias)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x):
+        x = self.c_fc(x)
+        x = F.gelu(x)
+        x = self.c_proj(x)
+        x = self.dropout(x)
+        return x
+
+
+class Block(nn.Module):
+    """pre-LN transformer block."""
+
+    def __init__(self, n_embd, n_head, block_size, dropout=0.0, bias=False):
+        super().__init__()
+        self.ln1 = nn.LayerNorm(n_embd)
+        self.attn = CausalSelfAttention(n_embd, n_head, block_size, dropout, bias)
+        self.ln2 = nn.LayerNorm(n_embd)
+        self.mlp = MLP(n_embd, dropout, bias)
+
+    def forward(self, x):
+        x = x + self.attn(self.ln1(x))
+        x = x + self.mlp(self.ln2(x))
+        return x
