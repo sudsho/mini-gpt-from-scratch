@@ -164,3 +164,21 @@ class GPT(nn.Module):
                 targets.view(-1),
             )
         return logits, loss
+
+    @torch.no_grad()
+    def generate(self, idx, max_new_tokens, temperature=1.0, top_k=None):
+        """autoregressive sampling. idx: (B, T) of indices."""
+        for _ in range(max_new_tokens):
+            idx_cond = (
+                idx if idx.size(1) <= self.config.block_size
+                else idx[:, -self.config.block_size:]
+            )
+            logits, _ = self(idx_cond)
+            logits = logits[:, -1, :] / max(temperature, 1e-8)
+            if top_k is not None:
+                v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
+                logits[logits < v[:, [-1]]] = -float("inf")
+            probs = F.softmax(logits, dim=-1)
+            next_id = torch.multinomial(probs, num_samples=1)
+            idx = torch.cat((idx, next_id), dim=1)
+        return idx
