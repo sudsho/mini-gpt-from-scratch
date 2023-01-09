@@ -80,3 +80,87 @@ class Block(nn.Module):
         x = x + self.attn(self.ln1(x))
         x = x + self.mlp(self.ln2(x))
         return x
+
+
+class GPTConfig:
+    def __init__(
+        self,
+        vocab_size,
+        block_size=256,
+        n_layer=6,
+        n_head=6,
+        n_embd=384,
+        dropout=0.0,
+        bias=False,
+    ):
+        self.vocab_size = vocab_size
+        self.block_size = block_size
+        self.n_layer = n_layer
+        self.n_head = n_head
+        self.n_embd = n_embd
+        self.dropout = dropout
+        self.bias = bias
+
+
+class GPT(nn.Module):
+
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+
+        self.tok_emb = nn.Embedding(config.vocab_size, config.n_embd)
+        self.pos_emb = nn.Embedding(config.block_size, config.n_embd)
+        self.drop = nn.Dropout(config.dropout)
+        self.blocks = nn.ModuleList(
+            [
+                Block(
+                    config.n_embd,
+                    config.n_head,
+                    config.block_size,
+                    config.dropout,
+                    config.bias,
+                )
+                for _ in range(config.n_layer)
+            ]
+        )
+        self.ln_f = nn.LayerNorm(config.n_embd)
+        self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
+
+        # weight tying
+        self.lm_head.weight = self.tok_emb.weight
+
+        self.apply(self._init_weights)
+
+    def _init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if module.bias is not None:
+                nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            nn.init.normal_(module.weight, mean=0.0, std=0.02)
+
+    def num_params(self):
+        # exclude position embedding from "trainable params" count by tradition
+        n = sum(p.numel() for p in self.parameters())
+        return n
+
+    def forward(self, idx, targets=None):
+        B, T = idx.size()
+        assert T <= self.config.block_size, "sequence longer than block_size"
+
+        pos = torch.arange(0, T, dtype=torch.long, device=idx.device)
+        tok = self.tok_emb(idx)
+        p = self.pos_emb(pos)
+        x = self.drop(tok + p)
+        for block in self.blocks:
+            x = block(x)
+        x = self.ln_f(x)
+        logits = self.lm_head(x)
+
+        loss = None
+        if targets is not None:
+            loss = F.cross_entropy(
+                logits.view(-1, logits.size(-1)),
+                targets.view(-1),
+            )
+        return logits, loss
