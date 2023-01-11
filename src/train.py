@@ -28,6 +28,31 @@ def get_batch(data, block_size, batch_size, device):
     return x, y
 
 
+@torch.no_grad()
+def estimate_loss(model, train_data, val_data, block_size, batch_size, eval_iters, device):
+    out = {}
+    model.eval()
+    for split, data in [("train", train_data), ("val", val_data)]:
+        losses = torch.zeros(eval_iters)
+        for k in range(eval_iters):
+            x, y = get_batch(data, block_size, batch_size, device)
+            _, loss = model(x, y)
+            losses[k] = loss.item()
+        out[split] = losses.mean().item()
+    model.train()
+    return out
+
+
+def cosine_lr(it, warmup, max_iters, lr, min_lr):
+    if it < warmup:
+        return lr * (it + 1) / warmup
+    if it > max_iters:
+        return min_lr
+    decay_ratio = (it - warmup) / (max_iters - warmup)
+    coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))
+    return min_lr + coeff * (lr - min_lr)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
@@ -72,21 +97,45 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
 
     t0 = time.time()
+    best_val = float("inf")
     for it in range(cfg["max_iters"]):
+        # set LR
+        lr = cosine_lr(
+            it,
+            cfg.get("warmup_iters", 100),
+            cfg.get("lr_decay_iters", cfg["max_iters"]),
+            cfg["learning_rate"],
+            cfg.get("min_lr", cfg["learning_rate"] / 10),
+        )
+        for pg in optimizer.param_groups:
+            pg["lr"] = lr
+
         x, y = get_batch(train_data, cfg["block_size"], cfg["batch_size"], device)
         _, loss = model(x, y)
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
+        if cfg.get("grad_clip", 0) > 0:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), cfg["grad_clip"])
         optimizer.step()
 
         if it % cfg.get("log_interval", 10) == 0:
-            print(f"iter {it} loss {loss.item():.4f}")
+            print(f"iter {it} loss {loss.item():.4f} lr {lr:.5f}")
 
-    torch.save(
-        {"model": model.state_dict(), "config": vars(gpt_cfg)},
-        os.path.join(out_dir, "ckpt.pt"),
-    )
-    print(f"done in {time.time() - t0:.1f}s")
+        if it > 0 and it % cfg.get("eval_interval", 250) == 0:
+            losses = estimate_loss(
+                model, train_data, val_data,
+                cfg["block_size"], cfg["batch_size"],
+                cfg.get("eval_iters", 100), device,
+            )
+            print(f"eval iter {it} train {losses['train']:.4f} val {losses['val']:.4f}")
+            if losses["val"] < best_val:
+                best_val = losses["val"]
+                torch.save(
+                    {"model": model.state_dict(), "config": vars(gpt_cfg)},
+                    os.path.join(out_dir, "ckpt.pt"),
+                )
+
+    print(f"done in {time.time() - t0:.1f}s, best val {best_val:.4f}")
 
 
 if __name__ == "__main__":
