@@ -11,6 +11,7 @@ import pickle
 import yaml
 import numpy as np
 import torch
+import mlflow
 
 from src.model import GPT, GPTConfig
 
@@ -96,6 +97,12 @@ def main():
     out_dir = cfg["out_dir"]
     os.makedirs(out_dir, exist_ok=True)
 
+    # mlflow
+    run_name = cfg.get("run_name", os.path.basename(args.config))
+    mlflow.set_experiment(cfg.get("experiment_name", "mini-gpt"))
+    mlflow.start_run(run_name=run_name)
+    mlflow.log_params({k: v for k, v in cfg.items() if isinstance(v, (int, float, str, bool))})
+
     t0 = time.time()
     best_val = float("inf")
     for it in range(cfg["max_iters"]):
@@ -120,6 +127,8 @@ def main():
 
         if it % cfg.get("log_interval", 10) == 0:
             print(f"iter {it} loss {loss.item():.4f} lr {lr:.5f}")
+            mlflow.log_metric("train_loss_step", loss.item(), step=it)
+            mlflow.log_metric("lr", lr, step=it)
 
         if it > 0 and it % cfg.get("eval_interval", 250) == 0:
             losses = estimate_loss(
@@ -128,6 +137,8 @@ def main():
                 cfg.get("eval_iters", 100), device,
             )
             print(f"eval iter {it} train {losses['train']:.4f} val {losses['val']:.4f}")
+            mlflow.log_metric("train_loss", losses["train"], step=it)
+            mlflow.log_metric("val_loss", losses["val"], step=it)
             if losses["val"] < best_val:
                 best_val = losses["val"]
                 torch.save(
@@ -136,6 +147,8 @@ def main():
                 )
 
     print(f"done in {time.time() - t0:.1f}s, best val {best_val:.4f}")
+    mlflow.log_metric("best_val_loss", best_val)
+    mlflow.end_run()
 
 
 if __name__ == "__main__":
