@@ -130,6 +130,10 @@ class GPT(nn.Module):
         self.lm_head.weight = self.tok_emb.weight
 
         self.apply(self._init_weights)
+        # special scaled init for residual projections (GPT-2 paper)
+        for pn, p in self.named_parameters():
+            if pn.endswith("c_proj.weight"):
+                nn.init.normal_(p, mean=0.0, std=0.02 / math.sqrt(2 * config.n_layer))
 
     def _init_weights(self, module):
         if isinstance(module, nn.Linear):
@@ -139,9 +143,10 @@ class GPT(nn.Module):
         elif isinstance(module, nn.Embedding):
             nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
-    def num_params(self):
-        # exclude position embedding from "trainable params" count by tradition
+    def num_params(self, non_embedding=True):
         n = sum(p.numel() for p in self.parameters())
+        if non_embedding:
+            n -= self.pos_emb.weight.numel()
         return n
 
     def forward(self, idx, targets=None):
