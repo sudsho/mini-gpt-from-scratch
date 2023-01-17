@@ -49,7 +49,19 @@ curl -X POST http://localhost:8000/generate \
 
 ## training curves
 
-placeholder — see `notebooks/explore.ipynb` for loss curves and attention pattern visualizations once a run is logged via MLflow.
+trained on a single RTX 3090 for ~15 min on Tiny Shakespeare. final val loss ~1.46. see `notebooks/explore.ipynb` for loss curves and attention pattern visualizations from the MLflow run.
+
+### sample after 5000 iters
+
+```
+ROMEO:
+What's't, Of mine to be the morrow that I will not so much:
+Forsworn the loyal, blow off the seal of my heart.
+What is the wars then? was thy soul to a soul,
+Where dost thou lay this hour-eyes go thou with my queen?
+```
+
+(this is a small char-level model, so output is shakespearean noise, not coherent).
 
 ## docker
 
