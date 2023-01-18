@@ -69,9 +69,17 @@ def main():
     train_data = np.fromfile(os.path.join(data_dir, "train.bin"), dtype=np.uint16)
     val_data = np.fromfile(os.path.join(data_dir, "val.bin"), dtype=np.uint16)
 
-    with open(os.path.join(data_dir, "tokenizer.pkl"), "rb") as f:
-        meta = pickle.load(f)
-    vocab_size = len(meta["vocab"])
+    # vocab size: prefer config override, else read meta.pkl/tokenizer.pkl
+    if "vocab_size" in cfg:
+        vocab_size = cfg["vocab_size"]
+    elif os.path.exists(os.path.join(data_dir, "meta.pkl")):
+        with open(os.path.join(data_dir, "meta.pkl"), "rb") as f:
+            meta = pickle.load(f)
+        vocab_size = meta["vocab_size"]
+    else:
+        with open(os.path.join(data_dir, "tokenizer.pkl"), "rb") as f:
+            meta = pickle.load(f)
+        vocab_size = len(meta["vocab"])
     print(f"vocab size = {vocab_size}, train tokens = {len(train_data):,}")
 
     # model
