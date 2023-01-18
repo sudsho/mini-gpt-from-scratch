@@ -1,0 +1,36 @@
+# Small OpenWebText (~50M token slice) with GPT-2 BPE.
+
+dataset: openwebtext
+data_dir: data/openwebtext
+out_dir: out/owt-mini
+
+# model (still small, this is the "mini" config)
+n_layer: 8
+n_head: 8
+n_embd: 512
+block_size: 256
+dropout: 0.1
+bias: false
+
+# training
+batch_size: 32
+max_iters: 30000
+eval_interval: 500
+eval_iters: 200
+learning_rate: 6.0e-4
+min_lr: 6.0e-5
+warmup_iters: 200
+lr_decay_iters: 30000
+weight_decay: 0.1
+beta1: 0.9
+beta2: 0.95
+grad_clip: 1.0
+
+# system
+device: cuda
+seed: 1337
+log_interval: 50
+
+# tokenizer info (for train.py to skip char-vocab loading)
+tokenizer: tiktoken-gpt2
+vocab_size: 50257
