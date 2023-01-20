@@ -1,4 +1,7 @@
-"""sample text from a trained checkpoint."""
+"""sample text from a trained checkpoint.
+
+supports both char-level (tokenizer.pkl) and tiktoken (gpt2 BPE) checkpoints.
+"""
 
 import os
 import argparse
@@ -19,11 +22,29 @@ def load_model(ckpt_path, device):
     return model, config
 
 
+def load_tokenizer(kind, path=None):
+    if kind == "char":
+        return CharTokenizer.load(path)
+    if kind == "tiktoken-gpt2":
+        import tiktoken
+        enc = tiktoken.get_encoding("gpt2")
+
+        class _Wrap:
+            def encode(self, s):
+                return enc.encode_ordinary(s)
+
+            def decode(self, ids):
+                return enc.decode(list(ids))
+        return _Wrap()
+    raise ValueError(f"unknown tokenizer kind {kind}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--ckpt", required=True)
+    ap.add_argument("--tokenizer-kind", choices=["char", "tiktoken-gpt2"], default="char")
     ap.add_argument("--tokenizer", default=None,
-                    help="path to tokenizer.pkl, default: data/tiny-shakespeare/tokenizer.pkl")
+                    help="path to tokenizer.pkl (char only)")
     ap.add_argument("--prompt", default="\n")
     ap.add_argument("--max-new-tokens", type=int, default=200)
     ap.add_argument("--temperature", type=float, default=0.8)
@@ -35,7 +56,7 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     tok_path = args.tokenizer or "data/tiny-shakespeare/tokenizer.pkl"
-    tokenizer = CharTokenizer.load(tok_path)
+    tokenizer = load_tokenizer(args.tokenizer_kind, tok_path)
 
     model, _ = load_model(args.ckpt, device)
 
