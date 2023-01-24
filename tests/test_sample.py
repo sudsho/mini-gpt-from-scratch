@@ -32,8 +32,8 @@ def test_generate_top_k(tiny_model):
     model, _ = tiny_model
     model.eval()
     idx = torch.tensor([[1, 2, 3]], dtype=torch.long)
-    torch.manual_seed(0)
     o1 = model.generate(idx, max_new_tokens=5, temperature=1.0, top_k=1)
-    torch.manual_seed(99)  # different seed should not matter for greedy
+    # different seed should not matter for greedy
+    torch.manual_seed(99)
     o2 = model.generate(idx, max_new_tokens=5, temperature=1.0, top_k=1)
     assert torch.equal(o1, o2)
