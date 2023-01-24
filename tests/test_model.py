@@ -50,3 +50,25 @@ def test_gpt_forward_with_targets(small_cfg):
     assert logits.shape == (4, 10, small_cfg.vocab_size)
     assert loss.ndim == 0
     assert torch.isfinite(loss)
+
+
+def test_causal_mask_no_future_leak(small_cfg):
+    """changing future tokens should not affect past predictions (left side)."""
+    model = GPT(small_cfg)
+    model.eval()
+    torch.manual_seed(0)
+    idx_a = torch.randint(0, small_cfg.vocab_size, (1, 16))
+    idx_b = idx_a.clone()
+    idx_b[0, 8:] = (idx_b[0, 8:] + 7) % small_cfg.vocab_size  # perturb the future
+    with torch.no_grad():
+        logits_a, _ = model(idx_a)
+        logits_b, _ = model(idx_b)
+    # left half (indices 0..7) must be identical
+    assert torch.allclose(logits_a[:, :8, :], logits_b[:, :8, :], atol=1e-6)
+
+
+def test_block_size_assertion(small_cfg):
+    model = GPT(small_cfg)
+    too_long = torch.zeros(1, small_cfg.block_size + 1, dtype=torch.long)
+    with pytest.raises(AssertionError):
+        model(too_long)
