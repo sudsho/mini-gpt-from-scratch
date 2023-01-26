@@ -14,9 +14,13 @@ def tiny_model():
 
 def test_generate_extends_sequence(tiny_model):
     model, cfg = tiny_model
+    model.eval()
     idx = torch.tensor([[1, 2, 3]], dtype=torch.long)
     out = model.generate(idx, max_new_tokens=5)
     assert out.shape == (1, 8)
+    # all generated ids must be in vocab range
+    assert int(out.max()) < cfg.vocab_size
+    assert int(out.min()) >= 0
 
 
 def test_generate_does_not_exceed_block_size(tiny_model):
