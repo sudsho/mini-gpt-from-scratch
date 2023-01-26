@@ -5,15 +5,19 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
-# import the app object - the startup hook tries to load a checkpoint, but
-# if it doesn't exist the app still starts and /health returns model_loaded=false.
-os.environ.setdefault("MINI_GPT_CKPT", "out/does-not-exist.pt")
+# point at a non-existent ckpt BEFORE importing the app, so the startup hook
+# is a no-op and tests don't depend on any trained checkpoint being present.
+os.environ["MINI_GPT_CKPT"] = "out/__pytest_does_not_exist__.pt"
 
-from src.api.main import app  # noqa: E402
+from src.api.main import app, _state  # noqa: E402
 
 
 @pytest.fixture(scope="module")
 def client():
+    # reset the module-global state so order of tests doesn't matter
+    _state["model"] = None
+    _state["config"] = None
+    _state["tokenizer"] = None
     with TestClient(app) as c:
         yield c
 
