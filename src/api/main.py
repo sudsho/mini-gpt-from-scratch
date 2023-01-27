@@ -72,8 +72,16 @@ def generate(req: GenRequest):
         raise HTTPException(status_code=400, detail="empty prompt after tokenization")
 
     idx = torch.tensor([prompt_ids], dtype=torch.long, device=DEVICE)
+    # crop prompt to the model's block size up front so we don't crash inside generate
+    block_size = _state["config"].block_size
+    if idx.size(1) > block_size:
+        idx = idx[:, -block_size:]
+
     top_k = req.top_k if req.top_k > 0 else None
-    out = model.generate(idx, req.max_new_tokens, req.temperature, top_k)
+    with torch.no_grad():
+        out = model.generate(idx, req.max_new_tokens, req.temperature, top_k)
+
     full = tok.decode(out[0].tolist())
-    completion = full[len(req.prompt):]
+    # only return the newly generated suffix, not the (possibly cropped) prompt
+    completion = full[len(tok.decode(prompt_ids)):]
     return GenResponse(prompt=req.prompt, completion=completion)
