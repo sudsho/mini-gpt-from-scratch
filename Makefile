@@ -1,4 +1,4 @@
-.PHONY: install data train sample test serve docker clean
+.PHONY: install data train sample test serve docker docker-up docker-down clean
 
 install:
 	pip install -r requirements.txt
@@ -19,7 +19,13 @@ serve:
 	uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
 
 docker:
-	docker build -t mini-gpt .
+	docker build -f deploy/Dockerfile -t mini-gpt:dev .
+
+docker-up:
+	docker compose -f deploy/docker-compose.yml up --build
+
+docker-down:
+	docker compose -f deploy/docker-compose.yml down
 
 clean:
 	rm -rf __pycache__ .pytest_cache out/ mlruns/

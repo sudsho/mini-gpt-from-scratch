@@ -66,9 +66,36 @@ Where dost thou lay this hour-eyes go thou with my queen?
 ## docker
 
 ```bash
-docker build -t mini-gpt .
-docker run -p 8000:8000 mini-gpt
+# build the image and run the api
+make docker
+docker run -p 8000:8000 \
+    -v $(pwd)/out:/app/out:ro \
+    -v $(pwd)/data:/app/data:ro \
+    mini-gpt:dev
+
+# or with docker compose
+make docker-up
 ```
+
+The image uses the CPU-only torch wheel so it stays around 1GB. For training a real model you want a CUDA base image, see `deploy/Dockerfile` for the pattern.
+
+## tests
+
+```bash
+pytest tests/ -v
+```
+
+`tests/conftest.py` seeds python/numpy/torch before every test. Coverage:
+
+- `test_data.py` - char tokenizer roundtrip and save/load
+- `test_model.py` - shape tests, causal mask leak check, block size assertion
+- `test_sample.py` - generate() shape, cropping when prompt > block size, greedy determinism
+- `test_api.py` - FastAPI routes via TestClient (health, validation, 503 when no ckpt)
+- `test_train_smoke.py` - one-batch optim step actually decreases loss
+
+## ci
+
+A GitHub Actions workflow that runs the test suite on push/PR is in `ci/test.yml.example`. Move it to `.github/workflows/test.yml` after granting the `workflow` scope to the deploy token.
 
 ## license
 
