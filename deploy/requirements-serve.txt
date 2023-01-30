@@ -1,0 +1,10 @@
+# subset of requirements.txt - only what the api needs at serve time.
+# torch CPU-only wheel keeps the image around ~1GB instead of ~5GB.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==1.13.1+cpu
+tiktoken==0.3.3
+fastapi==0.92.0
+uvicorn==0.20.0
+pydantic==1.10.5
+numpy==1.24.2
+pyyaml==6.0

@@ -1,0 +1,19 @@
+version: "3.8"
+
+services:
+  mini-gpt:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: mini-gpt:dev
+    ports:
+      - "8000:8000"
+    environment:
+      MINI_GPT_CKPT: /app/out/ckpt.pt
+      MINI_GPT_TOKENIZER: char
+      MINI_GPT_TOKENIZER_PATH: /app/data/tiny-shakespeare/tokenizer.pkl
+    volumes:
+      # mount the trained checkpoint and tokenizer in from the host
+      - ../out:/app/out:ro
+      - ../data:/app/data:ro
+    restart: unless-stopped
