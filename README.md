@@ -26,8 +26,8 @@ defaults (config/tiny-shakespeare.yaml): 6 layers, 6 heads, 384 dim, block size 
 
 ## datasets
 
-- Tiny Shakespeare (~1MB) — `src/data.py` downloads from karpathy's repo, char-level vocab (~65 tokens).
-- OpenWebText subset — small slice tokenized with `tiktoken` GPT-2 BPE.
+- Tiny Shakespeare (~1MB) - `src/data.py` downloads from karpathy's repo, char-level vocab (~65 tokens).
+- OpenWebText subset - small slice tokenized with `tiktoken` GPT-2 BPE.
 
 ## quickstart
 
