@@ -4,6 +4,56 @@ build a small decoder-only GPT from scratch in PyTorch. train on Tiny Shakespear
 
 inspired by Andrej Karpathy's nanoGPT (released early Jan 2023). this is my own re-implementation of the same ideas, kept small enough to train on a single GPU.
 
+## quick start (runs offline)
+
+No download, no GPU, no API keys. A small public-domain char corpus is bundled at
+`data/tiny_corpus.txt`, so the smoke trains a tiny char-level GPT on CPU, samples
+from it, and serves it through the FastAPI `/generate` endpoint in one shot.
+
+```bash
+python scripts/smoke.py     # or: make smoke
+```
+
+Real output from a run (torch 2.5.1 CPU, Python 3.11):
+
+```
+=== mini-gpt tiny-CPU offline smoke ===
+[1/5] shape + causal-mask asserts passed
+[2/5] built char tokenizer: vocab_size=54, corpus_chars=4697
+      tiny GPT: 102,400 params, n_layer=2 n_head=2 n_embd=64 block_size=64
+      step    0  loss 4.0112
+      step   50  loss 2.4769
+      step  100  loss 2.3369
+      step  150  loss 2.1877
+      step  200  loss 2.0041
+      step  250  loss 1.7875
+      step  299  loss 1.5911
+[3/5] trained 300 steps: loss 4.0112 -> 1.5911
+[4/5] sample from the trained tiny model:
+------------------------------------------------------------
+ROMEO:ing and myolor gownd o sicenerriesesil ch sumight an'sermitt,
+Thy deay sta thurpplay sun en maserrr hein fand o thight'r famor gior ane.
+
+Tis it enand men hir ome tomeet, tore tomen in eleckn nummenat
+------------------------------------------------------------
+[5/5] FastAPI /health + /generate served the tiny model:
+      prompt='ROMEO:' completion='und acturioured.\nAnd th deeep, moror day plarthe trear cheou'
+=== SMOKE OK ===
+```
+
+The output is char-level noise after 300 steps on ~4.7KB of text, which is the
+point: it shows the loss dropping, the sampler producing text-like tokens, and
+the whole train -> sample -> serve path working with nothing downloaded. Tests:
+
+```bash
+pytest tests/ -q     # 15 passed
+```
+
+The full training path below downloads Tiny Shakespeare and expects a GPU. If you
+just want the data step offline, `python -m src.data --dataset tiny-shakespeare --offline`
+uses the bundled corpus instead of the network. The OpenWebText / tiktoken BPE
+path (`src/prepare_owt.py`) is optional and only imported when you run it.
+
 ## why
 
 i wanted to actually understand the transformer block by writing it line-by-line. the goal is not to beat any benchmark, just to:
@@ -29,7 +79,7 @@ defaults (config/tiny-shakespeare.yaml): 6 layers, 6 heads, 384 dim, block size 
 - Tiny Shakespeare (~1MB) - `src/data.py` downloads from karpathy's repo, char-level vocab (~65 tokens).
 - OpenWebText subset - small slice tokenized with `tiktoken` GPT-2 BPE.
 
-## quickstart
+## full training (GPU)
 
 ```bash
 pip install -r requirements.txt

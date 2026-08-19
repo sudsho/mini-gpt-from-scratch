@@ -13,7 +13,7 @@ from src.data import CharTokenizer
 
 
 def load_model(ckpt_path, device):
-    ckpt = torch.load(ckpt_path, map_location=device)
+    ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
     cfg_dict = ckpt["config"]
     config = GPTConfig(**cfg_dict)
     model = GPT(config).to(device)

@@ -1,10 +1,19 @@
-.PHONY: install data train sample test serve docker docker-up docker-down clean
+.PHONY: install data data-offline smoke train sample test serve docker docker-up docker-down clean
 
 install:
 	pip install -r requirements.txt
 
 data:
 	python -m src.data --dataset tiny-shakespeare
+
+data-offline:
+	python -m src.data --dataset tiny-shakespeare --offline
+
+# tiny-CPU offline smoke: no downloads, no GPU, no keys.
+# trains a tiny char GPT a few hundred steps on the bundled corpus, samples,
+# and serves it through the FastAPI /generate endpoint in-process.
+smoke:
+	python scripts/smoke.py
 
 train:
 	python -m src.train --config configs/tiny-shakespeare.yaml

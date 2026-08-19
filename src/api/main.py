@@ -30,7 +30,7 @@ def _load():
     if not os.path.exists(CKPT_PATH):
         # serve will raise on /generate; let /health still respond.
         return
-    ckpt = torch.load(CKPT_PATH, map_location=DEVICE)
+    ckpt = torch.load(CKPT_PATH, map_location=DEVICE, weights_only=False)
     cfg = GPTConfig(**ckpt["config"])
     model = GPT(cfg).to(DEVICE)
     model.load_state_dict(ckpt["model"])

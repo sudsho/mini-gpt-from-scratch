@@ -1,9 +1,9 @@
 """data utilities: download, char vocab, train/val split."""
 
 import os
+import shutil
 import argparse
 import pickle
-import requests
 import numpy as np
 
 
@@ -11,18 +11,47 @@ TINY_SHAKESPEARE_URL = (
     "https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt"
 )
 
+# a small public-domain char corpus bundled in the repo so the demo and the
+# smoke test run with no network. lives at <repo>/data/tiny_corpus.txt.
+BUNDLED_CORPUS = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "data",
+    "tiny_corpus.txt",
+)
 
-def download_tiny_shakespeare(data_dir):
+
+def download_tiny_shakespeare(data_dir, offline=None):
+    """fetch the tiny shakespeare corpus.
+
+    if offline is True (or the MINI_GPT_OFFLINE env var is set) we skip the
+    network entirely and copy the bundled public-domain corpus instead. if a
+    download is attempted and fails, we fall back to the bundled corpus so the
+    pipeline still runs with no keys/downloads.
+    """
+    if offline is None:
+        offline = os.environ.get("MINI_GPT_OFFLINE", "") not in ("", "0", "false")
+
     os.makedirs(data_dir, exist_ok=True)
     raw_path = os.path.join(data_dir, "input.txt")
-    if not os.path.exists(raw_path):
+    if os.path.exists(raw_path):
+        print(f"already have {raw_path}")
+        return raw_path
+
+    if offline:
+        print(f"offline mode: using bundled corpus {BUNDLED_CORPUS}")
+        shutil.copyfile(BUNDLED_CORPUS, raw_path)
+        return raw_path
+
+    try:
+        import requests
         print(f"downloading tiny shakespeare to {raw_path}")
         r = requests.get(TINY_SHAKESPEARE_URL, timeout=30)
         r.raise_for_status()
         with open(raw_path, "w", encoding="utf-8") as f:
             f.write(r.text)
-    else:
-        print(f"already have {raw_path}")
+    except Exception as e:  # noqa: BLE001  (network down, no keys, etc.)
+        print(f"download failed ({e}); falling back to bundled corpus {BUNDLED_CORPUS}")
+        shutil.copyfile(BUNDLED_CORPUS, raw_path)
     return raw_path
 
 
@@ -60,8 +89,8 @@ class CharTokenizer:
         return cls(d["vocab"])
 
 
-def prepare_tiny_shakespeare(data_dir, val_frac=0.1):
-    raw_path = download_tiny_shakespeare(data_dir)
+def prepare_tiny_shakespeare(data_dir, val_frac=0.1, offline=None):
+    raw_path = download_tiny_shakespeare(data_dir, offline=offline)
     with open(raw_path, "r", encoding="utf-8") as f:
         text = f.read()
 
@@ -91,11 +120,16 @@ def main():
     ap.add_argument("--dataset", default="tiny-shakespeare")
     ap.add_argument("--data-dir", default=None)
     ap.add_argument("--val-frac", type=float, default=0.1)
+    ap.add_argument("--offline", action="store_true",
+                    help="skip the network and use the bundled corpus")
     args = ap.parse_args()
 
     if args.dataset == "tiny-shakespeare":
         data_dir = args.data_dir or "data/tiny-shakespeare"
-        prepare_tiny_shakespeare(data_dir, val_frac=args.val_frac)
+        prepare_tiny_shakespeare(
+            data_dir, val_frac=args.val_frac,
+            offline=True if args.offline else None,
+        )
     else:
         raise ValueError(f"unknown dataset {args.dataset}")
 
